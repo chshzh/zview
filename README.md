@@ -83,6 +83,7 @@ ZView is invoked through one of four commands. Bare `zview ...` is a shortcut fo
 | `-e, --elf-file` | all | Path to the firmware `.elf` file (e.g. `build/zephyr/zephyr.elf`). |
 | `-r, --runner` | `live`, `record`, `dump` | Debug runner: `jlink`, `pyocd`, or `gdb`. |
 | `-t, --runner-target` | `live`, `record`, `dump` | MCU descriptor for the chosen runner (see below). |
+| `-s, --serial-number` | `live`, `record`, `dump` | J-Link probe serial number. Bypasses the interactive probe-selection dialog when multiple J-Link probes are connected. |
 | `--period` | `live`, `record`, `dump` | Polling period in seconds (default: `0.10`). |
 
 ### Command-specific arguments
@@ -108,6 +109,10 @@ Use the device name from the [J-Link Supported Devices list](https://www.segger.
 ```
 # Example: Nordic nRF5340 DK
 west zview -e build/zephyr/zephyr.elf -r jlink -t nRF5340_xxAA
+
+# With multiple probes connected, pass the S/N to skip the selection dialog
+# (get serial numbers with: nrfutil device list)
+west zview -e build/zephyr/zephyr.elf -r jlink -t nRF5340_xxAA -s <jlink-serial-number>
 ```
 
 **pyOCD (`-r pyocd`)**

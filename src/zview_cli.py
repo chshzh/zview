@@ -52,6 +52,15 @@ def _add_live_target(parser: argparse.ArgumentParser, *, required: bool = True) 
         default=None,
         help="MCU descriptor for the chosen runner.",
     )
+    parser.add_argument(
+        "-s",
+        "--serial-number",
+        dest="serial_number",
+        type=int,
+        default=None,
+        metavar="SERIAL",
+        help="J-Link probe serial number (avoids the probe-selection dialog when multiple probes are connected).",
+    )
 
 
 def _add_period(parser: argparse.ArgumentParser) -> None:
@@ -189,6 +198,9 @@ def _build_live_backend(args):
         "pyocd": PyOCDScraper,
     }
     cls = scraper_map.get(args.runner, PyOCDScraper)
+    serial_number = getattr(args, "serial_number", None)
+    if cls is JLinkScraper:
+        return cls(args.runner_target, serial_number=serial_number)
     return cls(args.runner_target)
 
 

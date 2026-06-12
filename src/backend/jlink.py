@@ -12,8 +12,9 @@ from backend.base import AbstractScraper, ProbeConnectFailure
 
 
 class JLinkScraper(AbstractScraper):
-    def __init__(self, target_mcu: str | None):
+    def __init__(self, target_mcu: str | None, serial_number: int | None = None):
         super().__init__(target_mcu)
+        self._serial_number = serial_number
         self.probe = JLink()
 
     def connect(self):
@@ -21,7 +22,7 @@ class JLinkScraper(AbstractScraper):
             return
 
         try:
-            self.probe.open()
+            self.probe.open(serial_no=self._serial_number)
         except JLinkException as e:
             raise ProbeConnectFailure(f"Unable to open JLink probe: {e}") from e
 
