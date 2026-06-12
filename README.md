@@ -245,6 +245,48 @@ west zview -r gdb -t localhost:1234
 </details>
 
 <details>
+<summary><strong>MbedTLS heap monitoring</strong></summary>
+<br>
+
+MbedTLS manages its own memory pool (`mbedtls_heap[]`) outside the Zephyr heap allocator, so ZView cannot discover it through the normal `k_heap` walk. A thin firmware-side bridge is required to expose MbedTLS stats to ZView.
+
+**1. Enable MbedTLS heap and debug accounting in `prj.conf`:**
+
+```
+CONFIG_MBEDTLS_ENABLE_HEAP=y
+CONFIG_MBEDTLS_MEMORY_DEBUG=y
+```
+
+**2. Add the bridge struct to your firmware** (in any `.c` file visible to the linker — keep it non-`static` so the symbol appears in DWARF):
+
+```c
+/* ZView MbedTLS bridge — must be non-static for DWARF visibility */
+struct {
+    uint32_t total_bytes;
+    uint32_t used_bytes;
+    uint32_t max_used_bytes;
+} zview_mbedtls_stats;
+```
+
+**3. Update the struct periodically** (e.g. in your heap-monitoring thread, after calling `mbedtls_memory_buffer_alloc_status()`):
+
+```c
+size_t cur_used, cur_blocks, max_used, max_blocks;
+mbedtls_memory_buffer_alloc_status(&cur_used, &cur_blocks,
+                                    &max_used, &max_blocks);
+
+zview_mbedtls_stats.total_bytes    = CONFIG_MBEDTLS_HEAP_SIZE;
+zview_mbedtls_stats.used_bytes     = (uint32_t)cur_used;
+zview_mbedtls_stats.max_used_bytes = (uint32_t)max_used;
+```
+
+Once present in the ELF, ZView auto-detects the `zview_mbedtls_stats` symbol on startup and adds an **`mbedtls`** entry to the heaps view. No extra CLI arguments are needed.
+
+> **Note:** `used_bytes` resets to 0 between TLS sessions (allocations are freed after each handshake). ZView uses the lifetime peak (`max_used_bytes`) as the bar fill so the display always reflects the high-water mark rather than the instantaneous value.
+
+</details>
+
+<details>
 <summary><strong>How it works</strong></summary>
 <br>
 

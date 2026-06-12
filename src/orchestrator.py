@@ -176,6 +176,15 @@ class ZScraper:
         self._k_heap_addresses = {n: elf.get_symbol_info(n, "address") for n in names}
         self.extra_info_heap_address: int | None = None
 
+        # Optional MbedTLS bridge: a flat {total, used, max_used} u32 struct written by
+        # heap_monitor.c when CONFIG_MBEDTLS_ENABLE_HEAP + CONFIG_MBEDTLS_MEMORY_DEBUG are on.
+        try:
+            self._mbedtls_stats_address: int | None = elf.get_symbol_info(
+                "zview_mbedtls_stats", "address"
+            )[0]
+        except (LookupError, IndexError):
+            self._mbedtls_stats_address = None
+
     def __enter__(self):
         self._m_scraper.__enter__()
 
@@ -549,4 +558,34 @@ class ZScraper:
                         chunks,
                     )
                 )
+
+        # MbedTLS bridge — flat 3×u32 struct: total_bytes, used_bytes, max_used_bytes
+        if getattr(self, "_mbedtls_stats_address", None) is not None:
+            try:
+                total_b, used_b, max_b = self._m_scraper.read32(
+                    self._mbedtls_stats_address, amount=3
+                )
+                # cur_used oscillates to 0 between TLS sessions (allocations are freed after
+                # each handshake). Use the persistent lifetime peak (max_b) as allocated_bytes
+                # so the bar shows a meaningful watermark rather than always 0%.
+                allocated_b = max_b
+                free_b = total_b - allocated_b if total_b >= allocated_b else 0
+                usage_pct = (allocated_b / total_b * 100) if total_b > 0 else 0.0
+                heaps.append(
+                    HeapInfo(
+                        "mbedtls",
+                        self._mbedtls_stats_address,
+                        free_b,
+                        allocated_b,
+                        max_b,
+                        usage_pct,
+                        None,
+                    )
+                )
+            except Exception as e:
+                data_queue.put(
+                    {"error": f"Error reading mbedtls heap stats: {e}"},
+                    block=False,
+                )
+
         return heaps
