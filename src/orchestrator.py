@@ -286,6 +286,7 @@ class ZScraper:
 
         consecutive_errors = 0
         while not stop_event.is_set():
+            cycle_start = time.perf_counter()
             in_batch = False
             try:
                 self._m_scraper.begin_batch()
@@ -331,7 +332,11 @@ class ZScraper:
                     with contextlib.suppress(Exception):
                         self._m_scraper.end_batch()
 
-            time.sleep(inspection_period)
+            # Sleep only the remainder of the period, so the poll cadence tracks
+            # the requested period instead of period-plus-read-time. When the
+            # reads already exceed the period, poll back-to-back (no sleep).
+            elapsed = time.perf_counter() - cycle_start
+            time.sleep(max(0.0, inspection_period - elapsed))
 
     def _read_cpu_cycles_delta(self) -> int:
         """Cycles elapsed since the last frame; ``-1`` when ``has_usage`` is False."""
