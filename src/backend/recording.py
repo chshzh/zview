@@ -49,10 +49,10 @@ class RecordingScraper(AbstractScraper):
         self._fp.write(json.dumps(header) + "\n")
 
     def _emit(self, op: str, args: dict, result=None) -> None:
-        """Append one call entry: ``{t, op, args[, result]}``."""
+        """Append one call entry: ``{t, op, args[, result]}``. ``t`` is monotonic."""
         if self._fp is None:
             return
-        entry: dict = {"t": time.time(), "op": op, "args": args}
+        entry: dict = {"t": time.perf_counter(), "op": op, "args": args}
         if result is not None:
             entry["result"] = result
         self._fp.write(json.dumps(entry) + "\n")
