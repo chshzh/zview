@@ -26,7 +26,7 @@ from elftools.elf.sections import SymbolTableSection
 _CACHE_HMAC_KEY = hashlib.sha256(str(Path.home()).encode()).digest()
 _HMAC_SIZE = 32  # SHA-256 digest length in bytes
 
-_CACHE_SCHEMA_VERSION = 2
+_CACHE_SCHEMA_VERSION = 3
 
 
 class ElfInspector:
@@ -266,6 +266,14 @@ class ElfInspector:
                         self._collect_members(die, struct_name, base_offset=0)
 
                     elif die.tag == "DW_TAG_variable":
+                        # Skip bare `extern` declarations (e.g. `extern __weak
+                        # struct k_heap foo;` used to reference an optionally
+                        # -compiled global): they carry a type but never get a
+                        # location/symbol-table entry, so resolving their
+                        # address later would raise LookupError.
+                        if die.attributes.get("DW_AT_declaration"):
+                            continue
+
                         name_attr = die.attributes.get("DW_AT_name")
                         type_attr = die.attributes.get("DW_AT_type")
                         if name_attr and type_attr:
